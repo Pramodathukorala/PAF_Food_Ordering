@@ -39,7 +39,190 @@ const Navbar = ({ user }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   
+  // Fetch notifications and count
+  useEffect(() => {
+    const fetchUnreadCounts = async () => {
+      if (!user) return;
+      
+      try {
+        const token = localStorage.getItem('token');
+        
+        // Fetch notification count
+        const notifResponse = await fetch(`${API_BASE_URL}/users/notifications/count`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (notifResponse.ok) {
+          const notifData = await notifResponse.json();
+          setUnreadCount(notifData.count);
+        }
+        
+        // Fetch message count
+        const msgResponse = await fetch(`${API_BASE_URL}/messages/unread-count`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (msgResponse.ok) {
+          const msgData = await msgResponse.json();
+          setUnreadMessageCount(msgData.count);
+        }
+      } catch (error) {
+        console.error('Error fetching unread counts:', error);
+      }
+    };
+    
+    fetchUnreadCounts();
+    
+    // Poll for updates
+    const intervalId = setInterval(fetchUnreadCounts, 30000);
+    
+    return () => clearInterval(intervalId);
+  }, [user]);
   
+  // Fetch notifications when dropdown is opened
+  const fetchNotifications = async () => {
+    if (!user) return;
+    
+    setIsLoadingNotifications(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/users/notifications`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  };
+  
+  // Toggle notifications dropdown
+  const toggleNotifications = () => {
+    if (!showNotifications) {
+      fetchNotifications();
+    }
+    setShowNotifications(!showNotifications);
+  };
+  
+  // Mark notification as read
+  const markAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/users/notifications/mark-read`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify([notificationId])
+      });
+      
+      if (response.ok) {
+        // Update local state
+        setNotifications(prev => 
+          prev.map(notification => 
+            notification.id === notificationId 
+              ? { ...notification, read: true } 
+              : notification
+          )
+        );
+        
+        // Update unread count
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      addToast('Failed to mark notification as read', 'error');
+    }
+  };
+  
+  // Mark all notifications as read
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/users/notifications/mark-all-read`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        // Update local state
+        setNotifications(prev => 
+          prev.map(notification => ({ ...notification, read: true }))
+        );
+        
+        // Reset unread count
+        setUnreadCount(0);
+        addToast('All notifications marked as read', 'success');
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      addToast('Failed to mark all notifications as read', 'error');
+    }
+  };
+  
+  // Clear all notifications
+  const clearAllNotifications = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/users/notifications/clear-all`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        // Clear notifications and reset count
+        setNotifications([]);
+        setUnreadCount(0);
+        addToast('All notifications cleared', 'success');
+      }
+    } catch (error) {
+      console.error('Error clearing all notifications:', error);
+      addToast('Failed to clear notifications', 'error');
+    }
+  };
+  
+  // Handle notification click (navigate to relevant page)
+  const handleNotificationClick = (notification) => {
+    // Mark as read
+    if (!notification.read) {
+      markAsRead(notification.id);
+    }
+    
+    // Navigate based on notification type
+    switch (notification.type) {
+      case 'FOLLOW':
+        // Navigate to follower's profile
+        navigate(`/profile/${notification.senderId}`);
+        break;
+      case 'LIKE':
+      case 'COMMENT':
+      case 'SHARE':
+        // Navigate to the post
+        navigate(`/post/${notification.resourceId}`);
+        break;
+      default:
+        // Default behavior - just close the dropdown
+        break;
+    }
+    
+    setShowNotifications(false);
+  };
 
   // Add a method to refresh search results with current follow status
   const refreshSearch = async (query) => {
