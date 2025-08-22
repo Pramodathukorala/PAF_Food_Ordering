@@ -546,7 +546,7 @@ const Messaging = () => {
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center text-gray-500">
                   <i className='bx bx-message-detail text-6xl mb-4'></i>
-                  <h3 className="text-xl font-medium mb-2">No conversation selected</h3>
+                  <h3 className="text-xl font-medium mb-2">None conversation selected</h3>
                   <p>Select a conversation or search for a user to start messaging</p>
                 </div>
               </div>
