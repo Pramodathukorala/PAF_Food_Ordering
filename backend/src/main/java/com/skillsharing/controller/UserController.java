@@ -499,7 +499,7 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
     
-    // Clear all notifications
+    // Clear notifications
     @DeleteMapping("/notifications/clear-all")
     public ResponseEntity<?> clearAllNotifications() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
